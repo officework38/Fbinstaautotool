@@ -1,0 +1,6 @@
+{
+  "name": "MetaSync Pro - FB & Insta Multi-Account Auto-Scheduler & RPA Suite",
+  "description": "Professional enterprise automation software for Facebook and Instagram multi-account scheduling, Graph API token manager, bulk media dispatch, and live RPA visual executor.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
