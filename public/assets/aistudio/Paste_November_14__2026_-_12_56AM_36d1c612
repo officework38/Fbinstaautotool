@@ -1,0 +1,705 @@
+"""
+FB & Insta Pro Auto-Scheduler v41.8 (Merged & Error-Free 2-Step Switch Edition)
+"""
+
+from datetime import datetime
+import os
+import threading
+import time
+import tkinter as tk
+from tkinter import filedialog, messagebox, scrolledtext, ttk, simpledialog
+import urllib.request
+import json
+
+# Selenium with auto driver management
+try:
+    from selenium import webdriver
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.chrome.service import Service
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    try:
+        from webdriver_manager.chrome import ChromeDriverManager
+        CHROME_DRIVER_MANAGER = True
+    except ImportError:
+        CHROME_DRIVER_MANAGER = False
+except ImportError:
+    webdriver = None
+    CHROME_DRIVER_MANAGER = False
+
+
+class MultiAccountProApp:
+
+    def __init__(self, root):
+        self.root = root
+        self.root.title("FB & Insta Pro Auto-Scheduler v41.8 (Error-Free Final Edition)")
+        
+        # AUTO FULL SCREEN WINDOW STATE
+        try:
+            self.root.state('zoomed')
+        except Exception:
+            self.root.geometry("1350x950")
+
+        self.FB_APP_ID = "YOUR_FACEBOOK_APP_ID"
+        self.FB_APP_SECRET = "YOUR_FACEBOOK_APP_SECRET"
+
+        # Store fetched Page Names mapped to their exact Facebook URLs
+        self.page_urls_map = {"Main Profile": "https://www.facebook.com/"}
+
+        self.profiles_dir = os.path.join(os.getcwd(), "browser_profiles")
+        self.proofs_dir = os.path.join(os.getcwd(), "execution_proofs")
+        os.makedirs(self.profiles_dir, exist_ok=True)
+        os.makedirs(self.proofs_dir, exist_ok=True)
+        self.engine_running = False
+
+        self.notebook = ttk.Notebook(root)
+        self.notebook.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Tab 1: Login & Account Setup
+        self.tab_login = ttk.Frame(self.notebook)
+        self.notebook.add(self.tab_login, text="1. Login & Profile Setup")
+        self.setup_login_tab()
+
+        # Tab 2: Inline Media & Fetched Pages Table
+        self.tab_content = ttk.Frame(self.notebook)
+        self.notebook.add(self.tab_content, text="2. Inline Media & Fetched Pages")
+        self.setup_content_tab()
+
+        # Tab 3: Advanced Master Scheduler
+        self.tab_scheduler = ttk.Frame(self.notebook)
+        self.notebook.add(self.tab_scheduler, text="3. Advanced Master Scheduler & Real RPA Execution")
+        self.setup_scheduler_tab()
+
+        # Tab 4: Live Execution Terminal
+        self.tab_live_terminal = ttk.Frame(self.notebook)
+        self.notebook.add(self.tab_live_terminal, text="4. Live RPA Execution Terminal")
+        self.setup_live_terminal_tab()
+
+        self.start_live_clock()
+
+    def get_chrome_driver(self, options=None):
+        if not webdriver:
+            return None
+        if CHROME_DRIVER_MANAGER:
+            try:
+                service = Service(ChromeDriverManager().install())
+                return webdriver.Chrome(service=service, options=options)
+            except Exception:
+                pass
+        return webdriver.Chrome(options=options)
+
+    def setup_login_tab(self):
+        f_login_main = tk.LabelFrame(
+            self.tab_login,
+            text=" 🔐 Facebook Account Login & Persistent Session Setup ",
+            font=("Arial", 11, "bold"),
+            fg="#1877F2"
+        )
+        f_login_main.pack(fill="both", expand=True, padx=20, pady=20)
+
+        f_prof = tk.Frame(f_login_main)
+        f_prof.pack(fill="x", padx=15, pady=15)
+
+        tk.Label(f_prof, text="Browser Profile Nickname:", font=("Arial", 10, "bold")).pack(side=tk.LEFT, padx=5)
+        self.entry_profile_name = tk.Entry(f_login_main, width=30, font=("Arial", 10))
+        self.entry_profile_name.pack(anchor="w", padx=20, pady=5)
+        self.entry_profile_name.insert(0, "Account_1")
+
+        f_actions_login = tk.Frame(f_login_main)
+        f_actions_login.pack(fill="x", padx=15, pady=15)
+
+        btn_open_manual_browser = tk.Button(
+            f_actions_login,
+            text="🌐 1. Open Login Browser & Fetch Real Pages to Tab 2",
+            bg="#28a745",
+            fg="white",
+            font=("Arial", 11, "bold"),
+            padx=15,
+            pady=10,
+            command=self.open_manual_real_browser_login
+        )
+        btn_open_manual_browser.pack(anchor="w", padx=5, pady=5)
+
+        btn_add_real_page_direct = tk.Button(
+            f_actions_login,
+            text="➕ 2. Manually Add Real Page / URL",
+            bg="#007ACC",
+            fg="white",
+            font=("Arial", 10, "bold"),
+            padx=10,
+            pady=8,
+            command=self.dialog_add_real_page_direct
+        )
+        btn_add_real_page_direct.pack(anchor="w", padx=5, pady=10)
+
+        f_cookie_box = tk.LabelFrame(f_login_main, text=" Session Cookies Status ", font=("Arial", 9, "bold"))
+        f_cookie_box.pack(fill="both", expand=True, padx=15, pady=10)
+
+        self.txt_accounts = scrolledtext.ScrolledText(f_cookie_box, width=120, height=8, font=("Courier", 9))
+        self.txt_accounts.pack(padx=10, pady=10, fill="both", expand=True)
+        self.txt_accounts.insert(tk.END, "Status: Waiting for browser login session...\n")
+
+    def setup_content_tab(self):
+        f_bulk = tk.LabelFrame(self.tab_content, text=" 📝 Global Bulk Caption / Post Text Injector ", font=("Arial", 10, "bold"), fg="#28a745")
+        f_bulk.pack(fill="x", padx=15, pady=5)
+
+        self.txt_bulk_caption = scrolledtext.ScrolledText(f_bulk, width=140, height=2, font=("Arial", 9))
+        self.txt_bulk_caption.pack(padx=10, pady=5)
+        self.txt_bulk_caption.insert(tk.END, "Check out this amazing update! 🔥 Follow for more. #viral #reels #trending")
+
+        f_bulk_controls = tk.Frame(f_bulk)
+        f_bulk_controls.pack(fill="x", padx=10, pady=2)
+
+        self.chk_apply_all_cap = tk.IntVar(value=1)
+        tk.Checkbutton(f_bulk_controls, text="Apply to ALL Pages", variable=self.chk_apply_all_cap, font=("Arial", 9, "bold")).pack(side=tk.LEFT)
+        btn_apply_bulk = tk.Button(f_bulk_controls, text="📥 Apply Caption to All", bg="#28a745", fg="white", font=("Arial", 8, "bold"), command=self.apply_bulk_caption_to_table)
+        btn_apply_bulk.pack(side=tk.LEFT, padx=10)
+
+        f_time_bulk = tk.LabelFrame(self.tab_content, text=" ⏰ Global Bulk Schedule Time & Date Setter ", font=("Arial", 10, "bold"), fg="#007ACC")
+        f_time_bulk.pack(fill="x", padx=15, pady=5)
+
+        f_time_inner = tk.Frame(f_time_bulk)
+        f_time_inner.pack(padx=10, pady=5, anchor="w")
+
+        tk.Label(f_time_inner, text="Date (YYYY-MM-DD):", font=("Arial", 9)).grid(row=0, column=0, padx=5, sticky="w")
+        self.entry_bulk_date = tk.Entry(f_time_inner, width=12)
+        self.entry_bulk_date.grid(row=0, column=1, padx=5)
+        self.entry_bulk_date.insert(0, datetime.now().strftime("%Y-%m-%d"))
+
+        tk.Label(f_time_inner, text="Time (HH:MM):", font=("Arial", 9)).grid(row=0, column=2, padx=5, sticky="w")
+        self.entry_bulk_time = tk.Entry(f_time_inner, width=10)
+        self.entry_bulk_time.grid(row=0, column=3, padx=5)
+        self.entry_bulk_time.insert(0, datetime.now().strftime("%H:%M"))
+
+        btn_apply_time = tk.Button(f_time_inner, text="⏰ Apply Time to All", bg="#007ACC", fg="white", font=("Arial", 8, "bold"), command=self.apply_bulk_time_to_table)
+        btn_apply_time.grid(row=0, column=5, padx=5)
+
+        f_cont_top = tk.Frame(self.tab_content)
+        f_cont_top.pack(fill="x", padx=15, pady=(5, 2))
+        tk.Label(f_cont_top, text="Fetched Real Pages Table (Inline Media Setup):", font=("Arial", 10, "bold")).pack(side=tk.LEFT)
+
+        btn_clear_table = tk.Button(f_cont_top, text="🗑️ Clear Table", bg="#dc3545", fg="white", font=("Arial", 8, "bold"), command=self.clear_mapping_table)
+        btn_clear_table.pack(side=tk.RIGHT)
+
+        columns = ("profile", "type", "video", "caption", "date", "time", "action", "delete")
+        self.tree = ttk.Treeview(self.tab_content, columns=columns, show="headings", height=10)
+
+        self.tree.heading("profile", text="Profile / Real Page Name")
+        self.tree.heading("type", text="Type")
+        self.tree.heading("video", text="Media / Video Path (Click Browse)")
+        self.tree.heading("caption", text="Post Text / Caption")
+        self.tree.heading("date", text="Schedule Date")
+        self.tree.heading("time", text="Time")
+        self.tree.heading("action", text="Browse")
+        self.tree.heading("delete", text="Remove")
+
+        self.tree.column("profile", width=210, anchor="w")
+        self.tree.column("type", width=80, anchor="center")
+        self.tree.column("video", width=240, anchor="w")
+        self.tree.column("caption", width=200, anchor="w")
+        self.tree.column("date", width=95, anchor="center")
+        self.tree.column("time", width=65, anchor="center")
+        self.tree.column("action", width=70, anchor="center")
+        self.tree.column("delete", width=70, anchor="center")
+
+        self.tree.pack(padx=15, pady=2, fill="both", expand=True)
+
+        self.tree.bind("<Button-1>", self.on_table_click)
+        self.tree.bind("<Delete>", lambda e: self.delete_selected_row_tab2())
+
+        f_actions = tk.Frame(self.tab_content)
+        f_actions.pack(pady=5)
+
+        btn_edit_caption = tk.Button(f_actions, text="✏️ Edit Caption", bg="#ffc107", fg="black", font=("Arial", 8, "bold"), command=self.edit_caption_for_row)
+        btn_edit_caption.pack(side=tk.LEFT, padx=5)
+
+        btn_edit_time = tk.Button(f_actions, text="⏰ Edit Date/Time", bg="#17a2b8", fg="white", font=("Arial", 8, "bold"), command=self.edit_datetime_for_row)
+        btn_edit_time.pack(side=tk.LEFT, padx=5)
+
+        btn_del_row = tk.Button(f_actions, text="❌ Remove Selected Row", bg="#dc3545", fg="white", font=("Arial", 8, "bold"), command=self.delete_selected_row_tab2)
+        btn_del_row.pack(side=tk.LEFT, padx=5)
+
+        btn_to_scheduler = tk.Button(f_actions, text="Proceed to Master Scheduler ➔", bg="#007ACC", fg="white", font=("Arial", 9, "bold"), command=self.go_to_scheduler)
+        btn_to_scheduler.pack(side=tk.LEFT, padx=15)
+
+    def setup_scheduler_tab(self):
+        f_clock = tk.LabelFrame(self.tab_scheduler, text=" 🕒 Live System Clock & Real-Time Background Engine ", font=("Arial", 10, "bold"), fg="#6f42c1")
+        f_clock.pack(fill="x", padx=15, pady=10)
+
+        self.lbl_live_clock = tk.Label(f_clock, text="Current System Time: --:--:--", font=("Arial", 11, "bold"), fg="#333")
+        self.lbl_live_clock.pack(anchor="w", padx=10, pady=5)
+
+        self.lbl_countdown_status = tk.Label(f_clock, text="Status: Background Engine is STOPPED.", font=("Arial", 10, "bold"), fg="red")
+        self.lbl_countdown_status.pack(anchor="w", padx=10, pady=(0, 5))
+
+        f_monitor = tk.LabelFrame(self.tab_scheduler, text=" 🔍 Real Task Executor & Inspector ", font=("Arial", 10, "bold"), fg="#007ACC")
+        f_monitor.pack(fill="both", expand=True, padx=15, pady=5)
+
+        columns_sch = ("profile", "type", "video", "caption", "date", "time", "delete")
+        self.tree_sch = ttk.Treeview(f_monitor, columns=columns_sch, show="headings", height=8)
+
+        self.tree_sch.heading("profile", text="Real Target / Page Name")
+        self.tree_sch.heading("type", text="Type")
+        self.tree_sch.heading("video", text="Assigned Media File")
+        self.tree_sch.heading("caption", text="Post Text / Caption")
+        self.tree_sch.heading("date", text="Scheduled Date")
+        self.tree_sch.heading("time", text="Time")
+        self.tree_sch.heading("delete", text="Remove")
+
+        self.tree_sch.column("profile", width=210, anchor="w")
+        self.tree_sch.column("type", width=80, anchor="center")
+        self.tree_sch.column("video", width=260, anchor="w")
+        self.tree_sch.column("caption", width=240, anchor="w")
+        self.tree_sch.column("date", width=95, anchor="center")
+        self.tree_sch.column("time", width=65, anchor="center")
+        self.tree_sch.column("delete", width=70, anchor="center")
+
+        self.tree_sch.pack(padx=10, pady=5, fill="both", expand=True)
+
+        f_sch_actions = tk.Frame(f_monitor)
+        f_sch_actions.pack(pady=5, anchor="w", padx=10)
+
+        btn_launch_selected_rpa = tk.Button(
+            f_sch_actions,
+            text="🚀 Execute Real Post Now for Selected Page",
+            bg="#28a745",
+            fg="white",
+            font=("Arial", 9, "bold"),
+            command=self.launch_selected_target_rpa_manually
+        )
+        btn_launch_selected_rpa.pack(side=tk.LEFT, padx=5)
+
+        btn_launch_all_rpa = tk.Button(
+            f_sch_actions,
+            text="🚀 Execute Real Post Now for ALL Pages in Table",
+            bg="#6f42c1",
+            fg="white",
+            font=("Arial", 9, "bold"),
+            command=self.launch_all_targets_rpa_manually
+        )
+        btn_launch_all_rpa.pack(side=tk.LEFT, padx=10)
+
+        btn_del_sch_row = tk.Button(f_sch_actions, text="❌ Remove Target", bg="#dc3545", fg="white", font=("Arial", 8, "bold"), command=self.delete_selected_row_tab3)
+        btn_del_sch_row.pack(side=tk.LEFT, padx=5)
+
+        btn_start_schedule = tk.Button(self.tab_scheduler, text="🚀 Start Background Auto-Scheduler Engine", bg="green", fg="white", font=("Arial", 11, "bold"), command=self.launch_automation_engine)
+        btn_start_schedule.pack(pady=10)
+
+    def setup_live_terminal_tab(self):
+        f_term_top = tk.Frame(self.tab_live_terminal)
+        f_term_top.pack(fill="x", padx=15, pady=10)
+
+        tk.Label(f_term_top, text="Live RPA Real Execution Terminal Logs:", font=("Arial", 11, "bold"), fg="#1877F2").pack(side=tk.LEFT)
+
+        btn_clear_logs = tk.Button(f_term_top, text="Clear Logs", bg="#dc3545", fg="white", font=("Arial", 9, "bold"), command=self.clear_live_logs)
+        btn_clear_logs.pack(side=tk.RIGHT, padx=5)
+
+        self.txt_live_terminal = scrolledtext.ScrolledText(self.tab_live_terminal, width=145, height=32, font=("Consolas", 10), bg="#1e1e1e", fg="#00ff00")
+        self.txt_live_terminal.pack(padx=15, pady=5, fill="both", expand=True)
+        self.txt_live_terminal.insert(tk.END, f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] SYSTEM INITIALIZED. v41.8 Ready.\n")
+
+    def log_message(self, message):
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_line = f"[{timestamp}] {message}\n"
+        def _append():
+            try:
+                self.txt_live_terminal.config(state=tk.NORMAL)
+                self.txt_live_terminal.insert(tk.END, log_line)
+                self.txt_live_terminal.see(tk.END)
+                self.txt_live_terminal.config(state=tk.DISABLED)
+            except Exception:
+                pass
+        self.root.after(0, _append)
+
+    def clear_live_logs(self):
+        self.txt_live_terminal.config(state=tk.NORMAL)
+        self.txt_live_terminal.delete("1.0", tk.END)
+        self.txt_live_terminal.config(state=tk.DISABLED)
+
+    def dialog_add_real_page_direct(self):
+        page_name = simpledialog.askstring("Add Real Page", "Enter Real Facebook Page Name:", parent=self.root)
+        if not page_name:
+            return
+        page_url = simpledialog.askstring("Page URL", f"Enter Facebook URL for '{page_name}' (or leave blank):", parent=self.root)
+        if page_url:
+            self.page_urls_map[page_name.strip()] = page_url.strip()
+        curr_d = datetime.now().strftime("%Y-%m-%d")
+        curr_t = datetime.now().strftime("%H:%M")
+        self.tree.insert("", tk.END, values=(page_name.strip(), "Page", "Not Assigned", "#trending", curr_d, curr_t, "Browse", "Remove"))
+        self.log_message(f"Added real page target: [{page_name}] to Inline Media Table.")
+        messagebox.showinfo("Success", f"Page '{page_name}' added to Tab 2 table!")
+
+    def open_manual_real_browser_login(self):
+        profile_name = self.entry_profile_name.get().strip() or "Account_1"
+
+        def manual_login_worker():
+            self.log_message(f"Opening browser login session for profile: [{profile_name}]...")
+            if not webdriver:
+                self.log_message("Selenium is not installed!")
+                self.root.after(0, lambda: messagebox.showerror("Error", "Please run: pip install selenium webdriver-manager"))
+                return
+
+            try:
+                options = Options()
+                options.add_argument("--disable-notifications")
+                options.add_argument("--start-maximized")
+                options.add_argument("--disable-blink-features=AutomationControlled")
+                options.add_experimental_option("excludeSwitches", ["enable-automation"])
+                options.add_experimental_option("useAutomationExtension", False)
+
+                profile_path = os.path.join(self.profiles_dir, profile_name)
+                os.makedirs(profile_path, exist_ok=True)
+                options.add_argument(f"user-data-dir={profile_path}")
+
+                driver = self.get_chrome_driver(options=options)
+                wait = WebDriverWait(driver, 30)
+
+                driver.get("https://www.facebook.com/")
+
+                try:
+                    self.log_message("Checking login session...")
+                    wait.until(EC.presence_of_element_located((By.XPATH, "//div[@aria-label='Create a post' or contains(@aria-label, \"What's on your mind\")]")))
+                    self.log_message("Already logged in!")
+                except:
+                    self.log_message("Waiting for user to log in manually in browser...")
+                    self.root.after(0, lambda: messagebox.showinfo("Login Required", "Browser window me Facebook login karein.\n\nLogin hone ke baad OK dabayein taaki pages fetch ho sakein."))
+                    wait.until(EC.presence_of_element_located((By.XPATH, "//div[@aria-label='Create a post' or contains(@aria-label, \"What's on your mind\")]")))
+                    self.log_message("Login successful!")
+
+                time.sleep(2)
+
+                cookies = driver.get_cookies()
+                cookie_str = "".join([f"{c['name']}={c['value']}; " for c in cookies])
+                if cookie_str:
+                    self.root.after(0, lambda: self.txt_accounts.delete("1.0", tk.END))
+                    self.root.after(0, lambda: self.txt_accounts.insert(tk.END, cookie_str + "\n"))
+
+                target_url = "https://www.facebook.com/pages/?category=your_pages"
+                self.log_message(f"Fetching managed pages from: {target_url}")
+                driver.get(target_url)
+                time.sleep(5)
+
+                links = driver.find_elements(By.XPATH, "//div[@role='main']//a[@role='link']")
+                fetched_pages = []
+                seen_urls = set()
+
+                # STRICT FILTER: Exclude notifications, messages, profile, settings, numbers
+                ignore_words = [
+                    "Switch", "Promote", "Create", "View", "Insights", "Manage", 
+                    "See all", "Discover", "Liked Pages", "Invites", "Notification", 
+                    "Message", "Profile", "Settings", "Marketplace", "Groups", "Watch", "Memories"
+                ]
+
+                for link in links:
+                    name = link.text.strip()
+                    href = link.get_attribute("href")
+
+                    if name and href and "facebook.com" in href:
+                        if any(char.isdigit() for char in name):
+                            continue
+                        
+                        name_lower = name.lower()
+                        if any(w.lower() in name_lower for w in ignore_words):
+                            continue
+
+                        if len(name) > 1:
+                            clean_url = href.split('?')[0] if 'profile.php' not in href else href
+                            if clean_url not in seen_urls:
+                                seen_urls.add(clean_url)
+                                fetched_pages.append({"name": name, "url": href})
+                                self.page_urls_map[name] = href
+
+                curr_d = datetime.now().strftime("%Y-%m-%d")
+                curr_t = datetime.now().strftime("%H:%M")
+
+                self.root.after(0, lambda: [self.tree.delete(i) for i in self.tree.get_children()])
+                self.root.after(0, lambda d=curr_d, t=curr_t: self.tree.insert("", tk.END, values=("Main Profile", "Profile", "Not Assigned", "#viral #trending", d, t, "Browse", "Remove")))
+
+                if fetched_pages:
+                    for page_obj in fetched_pages:
+                        p_name = page_obj["name"]
+                        self.root.after(0, lambda name=p_name, d=curr_d, t=curr_t: self.tree.insert("", tk.END, values=(name, "Page", "Not Assigned", "#trending #viral", d, t, "Browse", "Remove")))
+
+                    self.log_message(f"✅ Successfully fetched {len(fetched_pages)} Pure Real Pages and added to Tab 2 Inline Table!")
+                    self.root.after(0, lambda: messagebox.showinfo("Success", f"{len(fetched_pages)} Pure Pages fetch ho gaye hain!"))
+                else:
+                    self.log_message("⚠️ No extra pages found. Main Profile added.")
+                    self.root.after(0, lambda: messagebox.showinfo("Notice", "Main Profile add kar di gayi hai."))
+
+                driver.quit()
+                self.root.after(0, lambda: self.notebook.select(self.tab_content))
+
+            except Exception as e:
+                self.log_message(f"Error during login/fetching: {str(e)}")
+                self.root.after(0, lambda: messagebox.showerror("Error", f"Browser error: {str(e)}"))
+
+        threading.Thread(target=manual_login_worker, daemon=True).start()
+
+    # --- TAB 2 TABLE CONTROLS ---
+    def apply_bulk_caption_to_table(self):
+        cap = self.txt_bulk_caption.get("1.0", tk.END).strip()
+        for item in self.tree.get_children():
+            vals = list(self.tree.item(item, "values"))
+            vals[3] = cap
+            self.tree.item(item, values=vals)
+        self.log_message("Applied bulk caption to all rows.")
+
+    def apply_bulk_time_to_table(self):
+        d = self.entry_bulk_date.get().strip()
+        t = self.entry_bulk_time.get().strip()
+        for item in self.tree.get_children():
+            vals = list(self.tree.item(item, "values"))
+            vals[4] = d
+            vals[5] = t
+            self.tree.item(item, values=vals)
+        self.log_message(f"Applied schedule {d} {t} to all rows.")
+
+    def on_table_click(self, event):
+        region = self.tree.identify("region", event.x, event.y)
+        if region == "cell":
+            col = self.tree.identify_column(event.x)
+            row_id = self.tree.identify_row(event.y)
+            if not row_id:
+                return
+            if col == "#7":  # Browse Media
+                file_path = filedialog.askopenfilename(filetypes=[("Media Files", "*.mp4 *.mov *.jpg *.png *.jpeg")])
+                if file_path:
+                    vals = list(self.tree.item(row_id, "values"))
+                    vals[2] = file_path
+                    self.tree.item(row_id, values=vals)
+            elif col == "#8":  # Remove Row
+                self.tree.delete(row_id)
+
+    def edit_caption_for_row(self):
+        sel = self.tree.selection()
+        if not sel:
+            return
+        vals = list(self.tree.item(sel[0], "values"))
+        new_cap = simpledialog.askstring("Edit Caption", "Enter Post Text / Caption:", initialvalue=vals[3], parent=self.root)
+        if new_cap is not None:
+            vals[3] = new_cap
+            self.tree.item(sel[0], values=vals)
+
+    def edit_datetime_for_row(self):
+        sel = self.tree.selection()
+        if not sel:
+            return
+        vals = list(self.tree.item(sel[0], "values"))
+        new_d = simpledialog.askstring("Edit Date", "Date (YYYY-MM-DD):", initialvalue=vals[4], parent=self.root)
+        new_t = simpledialog.askstring("Edit Time", "Time (HH:MM):", initialvalue=vals[5], parent=self.root)
+        if new_d:
+            vals[4] = new_d
+        if new_t:
+            vals[5] = new_t
+        self.tree.item(sel[0], values=vals)
+
+    def delete_selected_row_tab2(self):
+        for sel in self.tree.selection():
+            self.tree.delete(sel)
+
+    def clear_mapping_table(self):
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+    def go_to_scheduler(self):
+        for item in self.tree_sch.get_children():
+            self.tree_sch.delete(item)
+        for item in self.tree.get_children():
+            vals = self.tree.item(item, "values")
+            self.tree_sch.insert("", tk.END, values=(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], "Remove"))
+        self.notebook.select(self.tab_scheduler)
+
+    # --- TAB 3 SCHEDULER & ADVANCED EXECUTION (2-STEP INTEGRATED SWITCH & POST) ---
+    def delete_selected_row_tab3(self):
+        for sel in self.tree_sch.selection():
+            self.tree_sch.delete(sel)
+
+    def execute_real_fb_post(self, target_name, target_type, video_path, caption):
+        profile_name = self.entry_profile_name.get().strip() or "Account_1"
+        profile_path = os.path.join(self.profiles_dir, profile_name)
+        target_url = self.page_urls_map.get(target_name, "https://www.facebook.com/")
+
+        self.log_message(f"🚀 [REAL RPA] Starting execution for [{target_name}] -> {target_url}")
+
+        options = Options()
+        options.add_argument("--disable-notifications")
+        options.add_argument("--start-maximized")
+        options.add_argument(f"user-data-dir={profile_path}")
+
+        driver = self.get_chrome_driver(options=options)
+        wait = WebDriverWait(driver, 25)
+
+        try:
+            # 1. Navigate to target page URL
+            driver.get(target_url)
+            time.sleep(5)
+
+            # 2. INTEGRATED 2-STEP SWITCH HANDLER (Step 1: Page Button -> Step 2: Popup Modal Confirmation)
+            self.log_message(f"Executing 2-Step Switch verification for [{target_name}]...")
+            switched = False
+
+            # STEP 1: Click 'Switch Now' or similar button on the page using explicit wait & multi-fallback
+            try:
+                switch_button = WebDriverWait(driver, 6).until(
+                    EC.element_to_be_clickable(
+                        (
+                            By.XPATH,
+                            "//div[@aria-label='Switch Now' or @aria-label='Switch' or text()='Switch Now'] | //span[text()='Switch Now' or text()='Switch']"
+                        )
+                    )
+                )
+                driver.execute_script("arguments[0].click();", switch_button)
+                self.log_message("🔄 Step 1: 'Switch Now' button clicked successfully!")
+                time.sleep(4)  # Wait for popup modal to appear
+            except Exception:
+                self.log_message("Step 1 notice: No direct Switch Now button found, checking popup directly.")
+
+            # STEP 2: Wait and click confirmation button inside the 'Switch profiles' popup modal (Up to 15 seconds retry)
+            popup_wait_start = time.time()
+            while time.time() - popup_wait_start < 15:
+                try:
+                    popup_switch_btn = WebDriverWait(driver, 3).until(
+                        EC.element_to_be_clickable(
+                            (
+                                By.XPATH,
+                                "//div[@role='dialog']//div[@role='button' and (text()='Switch' or contains(., 'Switch'))] | //div[@role='dialog']//span[text()='Switch']"
+                            )
+                        )
+                    )
+                    driver.execute_script("arguments[0].click();", popup_switch_btn)
+                    self.log_message("✅ Step 2: Popup 'Switch' confirmation button successfully clicked!")
+                    switched = True
+                    time.sleep(8)  # Wait for full page reload & persona activation
+                    break
+                except Exception:
+                    pass
+                time.sleep(1)
+
+            if not switched:
+                self.log_message("Notice: No 2-step switch popup required or already active on page persona.")
+
+            # 3. Open Create Post Composer
+            self.log_message("Opening post composer...")
+            create_post_xpath = "//span[contains(text(), \"What's on your mind\")] | //div[@aria-label=\"Create a post\"]"
+            post_box = wait.until(EC.element_to_be_clickable((By.XPATH, create_post_xpath)))
+            driver.execute_script("arguments[0].click();", post_box)
+            time.sleep(3)
+
+            # 4. Type Caption / Post Text
+            self.log_message("Entering post caption...")
+            text_box_xpath = "//div[@role='dialog']//div[@contenteditable='true' and @role='textbox']"
+            text_box = wait.until(EC.element_to_be_clickable((By.XPATH, text_box_xpath)))
+            text_box.click()
+            text_box.send_keys(caption)
+            time.sleep(2)
+
+            # 5. Upload Media / Video if assigned
+            if video_path and video_path != "Not Assigned" and os.path.exists(video_path):
+                self.log_message(f"Uploading media file: {video_path}")
+                try:
+                    photo_video_btn = wait.until(EC.element_to_be_clickable((By.XPATH, "//div[@aria-label='Photo/video' or contains(@aria-label, 'Photo')]")))
+                    photo_video_btn.click()
+                    time.sleep(2)
+                    file_input = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@type='file']")))
+                    file_input.send_keys(os.path.abspath(video_path))
+                    self.log_message("Waiting for media upload to finish...")
+                    time.sleep(10)
+                except Exception as media_err:
+                    self.log_message(f"Media upload notice: {media_err}")
+
+            # 6. AUTO-CLICK 'NEXT' BUTTON IF IT APPEARS IN POST MODAL
+            self.log_message("Checking for 'Next' button in post modal...")
+            try:
+                time.sleep(3)
+                next_btn_xpath = "//div[@role='button']//span[contains(text(), 'Next')] | //div[@role='button' and (contains(@aria-label, 'Next') or text()='Next')]"
+                next_btn_elements = driver.find_elements(By.XPATH, next_btn_xpath)
+                if next_btn_elements:
+                    driver.execute_script("arguments[0].click();", next_btn_elements[0])
+                    self.log_message("➡️ 'Next' button clicked successfully!")
+                    time.sleep(3)
+            except Exception as next_err:
+                self.log_message(f"Next button notice: {next_err}")
+
+            # 7. Click Final Publish / Post button
+            self.log_message("Publishing final post...")
+            post_btn_xpath = "//div[@aria-label='Post' and @role='button'] | //div[contains(text(), 'Post') and @role='button']"
+            post_button = wait.until(EC.element_to_be_clickable((By.XPATH, post_btn_xpath)))
+            driver.execute_script("arguments[0].click();", post_button)
+
+            time.sleep(6)
+            proof_file = os.path.join(self.proofs_dir, f"proof_{int(time.time())}.png")
+            driver.save_screenshot(proof_file)
+            self.log_message(f"✅ SUCCESS: Post published to [{target_name}]! Screenshot saved: {proof_file}")
+
+        except Exception as e:
+            self.log_message(f"❌ RPA Execution Error on [{target_name}]: {str(e)}")
+        finally:
+            driver.quit()
+
+    def launch_selected_target_rpa_manually(self):
+        sel = self.tree_sch.selection()
+        if not sel:
+            messagebox.showwarning("Select Target", "Please select a page row from the table first!")
+            return
+        vals = self.tree_sch.item(sel[0], "values")
+        self.notebook.select(self.tab_live_terminal)
+        threading.Thread(
+            target=self.execute_real_fb_post,
+            args=(vals[0], vals[1], vals[2], vals[3]),
+            daemon=True
+        ).start()
+
+    def launch_all_targets_rpa_manually(self):
+        items = self.tree_sch.get_children()
+        if not items:
+            messagebox.showwarning("No Targets", "No pages available in Scheduler table!")
+            return
+        
+        self.notebook.select(self.tab_live_terminal)
+        self.log_message("🚀 Starting batch execution for ALL pages in the table...")
+
+        def batch_worker():
+            for item in items:
+                vals = self.tree_sch.item(item, "values")
+                self.execute_real_fb_post(vals[0], vals[1], vals[2], vals[3])
+                time.sleep(5)  # Buffer between different pages
+            self.log_message("✨ Batch posting to ALL pages completed successfully!")
+
+        threading.Thread(target=batch_worker, daemon=True).start()
+
+    def start_live_clock(self):
+        def update_clock():
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            self.lbl_live_clock.config(text=f"Current System Time: {now_str}")
+            self.root.after(1000, update_clock)
+        update_clock()
+
+    def launch_automation_engine(self):
+        if self.engine_running:
+            return
+        self.engine_running = True
+        self.lbl_countdown_status.config(text="Status: Background Real-Time Engine is RUNNING...", fg="green")
+        self.log_message("🟢 Background Auto-Scheduler Engine STARTED.")
+
+        def scheduler_loop():
+            while self.engine_running:
+                now = datetime.now()
+                for item in list(self.tree_sch.get_children()):
+                    vals = self.tree_sch.item(item, "values")
+                    try:
+                        sched_dt = datetime.strptime(f"{vals[4]} {vals[5]}", "%Y-%m-%d %H:%M")
+                        if now >= sched_dt:
+                            self.root.after(0, lambda i=item: self.tree_sch.delete(i))
+                            self.execute_real_fb_post(vals[0], vals[1], vals[2], vals[3])
+                    except Exception:
+                        pass
+                time.sleep(10)
+
+        threading.Thread(target=scheduler_loop, daemon=True).start()
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = MultiAccountProApp(root)
+    root.mainloop()

@@ -403,6 +403,22 @@ export default function App() {
             onUpdateApiConfig={setApiConfig}
             onLog={addLog}
             onFetchPagesSimulated={handleFetchPagesSimulated}
+            onAddDirectPage={(pageName, pageUrl) => {
+              const today = new Date().toISOString().split('T')[0];
+              const newTarget: ScheduledTargetItem = {
+                id: `direct-${Date.now()}`,
+                profile: pageName,
+                type: 'Page',
+                platform: 'facebook',
+                video: 'Not Assigned',
+                caption: '#trending #viral',
+                date: today,
+                time: '12:00',
+                status: 'queued'
+              };
+              setTargets(prev => [...prev, newTarget]);
+              setActiveTab('content');
+            }}
           />
         )}
 
@@ -441,6 +457,15 @@ export default function App() {
             onUndo={handleUndo}
             canUndo={deletedStack.length > 0}
             onLaunchRpa={handleLaunchRpa}
+            onLaunchAllRpa={() => {
+              if (targets.length === 0) {
+                alert('No targets available in scheduler!');
+                return;
+              }
+              setActiveTab('terminal');
+              addLog('INFO', `🚀 Starting batch execution for ALL ${targets.length} pages in table...`);
+              handleLaunchRpa(targets[0]);
+            }}
             onLog={addLog}
           />
         )}

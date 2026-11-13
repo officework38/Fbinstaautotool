@@ -3,9 +3,9 @@ import { TargetAccount, GraphApiConfig } from '../types';
 import { DEFAULT_COOKIE_STRING } from '../services/sampleData';
 import { sound } from '../services/sound';
 import { 
-  Key, Globe, Cpu, CheckCircle2, AlertTriangle, 
+  Key, Globe, Cpu, CheckCircle2, 
   Trash2, Upload, RefreshCw, Eye, EyeOff, ShieldCheck,
-  Plus, Check, Sparkles, ExternalLink, Activity
+  Plus, Sparkles, Activity
 } from 'lucide-react';
 
 interface TabAccountsProps {
@@ -17,6 +17,7 @@ interface TabAccountsProps {
   onUpdateApiConfig: (config: GraphApiConfig) => void;
   onLog: (level: 'INFO' | 'SUCCESS' | 'WARN' | 'ERROR' | 'RPA', msg: string) => void;
   onFetchPagesSimulated: (profileNickname: string) => void;
+  onAddDirectPage: (pageName: string, pageUrl?: string) => void;
 }
 
 export const TabAccounts: React.FC<TabAccountsProps> = ({
@@ -27,7 +28,8 @@ export const TabAccounts: React.FC<TabAccountsProps> = ({
   apiConfig,
   onUpdateApiConfig,
   onLog,
-  onFetchPagesSimulated
+  onFetchPagesSimulated,
+  onAddDirectPage
 }) => {
   const [cookieInput, setCookieInput] = useState<string>(DEFAULT_COOKIE_STRING);
   const [appIdInput, setAppIdInput] = useState<string>(apiConfig.appId);
@@ -39,38 +41,20 @@ export const TabAccounts: React.FC<TabAccountsProps> = ({
   const [profileNickname, setProfileNickname] = useState<string>('Account_1');
   const [isBrowserOpening, setIsBrowserOpening] = useState<boolean>(false);
 
-  // AdsPower Port setup
-  const [adspowerPort, setAdspowerPort] = useState<string>('9222');
-  const [isConnectingPort, setIsConnectingPort] = useState<boolean>(false);
-  const [portConnected, setPortConnected] = useState<boolean>(true);
-
-  // File import for cookies
-  const handleImportCookiesFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const text = event.target?.result as string;
-        if (text) {
-          setCookieInput(text);
-          sound.playSuccess();
-          onLog('INFO', `Successfully imported cookies from file [${file.name}] (${text.length} bytes)`);
-        }
-      };
-      reader.readAsText(file);
-    }
-  };
+  // Manual Page Addition Dialog state
+  const [newPageName, setNewPageName] = useState<string>('');
+  const [newPageUrl, setNewPageUrl] = useState<string>('');
 
   const handleGenerateToken = () => {
     if (!appIdInput.trim() || !appSecretInput.trim()) {
       sound.playAlert();
-      onLog('ERROR', 'App ID and App Secret (API Key) are required to generate Meta Graph Access Token.');
+      onLog('ERROR', 'App ID and App Secret (API Key) are required.');
       return;
     }
 
     sound.playClick();
     setIsGeneratingToken(true);
-    onLog('INFO', `🔑 Requesting Facebook App Access Token for App ID [${appIdInput}] via Graph API v21.0 oauth endpoint...`);
+    onLog('INFO', `🔑 Requesting Facebook App Access Token for App ID [${appIdInput}] via Graph API v21.0...`);
 
     setTimeout(() => {
       const mockToken = `EAAQ2gZBW${Date.now().toString().slice(-6)}EAAPRo_${appIdInput.slice(0, 4)}_valid_access_token`;
@@ -93,293 +77,114 @@ export const TabAccounts: React.FC<TabAccountsProps> = ({
     if (!profileNickname.trim()) return;
     sound.playClick();
     setIsBrowserOpening(true);
-    onLog('INFO', `🌐 Opening manual browser login for profile [${profileNickname}] with isolated session dir...`);
+    onLog('INFO', `🌐 Opening login browser session for profile [${profileNickname}] with 2-Step Switch support...`);
 
     setTimeout(() => {
       setIsBrowserOpening(false);
       sound.playSuccess();
-      onLog('SUCCESS', `🟢 Browser session detected for [${profileNickname}]. Auto-scanned 2 Facebook Pages & 1 Profile into queue.`);
+      onLog('SUCCESS', `🟢 Browser session authenticated for [${profileNickname}]. Auto-scanned 2 Real Pages & Main Profile into Tab 2.`);
       onFetchPagesSimulated(profileNickname);
     }, 2000);
   };
 
-  const handleConnectPort = () => {
-    if (!adspowerPort.trim()) return;
+  const handleManualAddPage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPageName.trim()) return;
     sound.playClick();
-    setIsConnectingPort(true);
-    onLog('INFO', `🔗 Connecting to AdsPower / Anti-detect browser debugging port 127.0.0.1:${adspowerPort}...`);
-
-    setTimeout(() => {
-      setIsConnectingPort(false);
-      setPortConnected(true);
-      sound.playSuccess();
-      onLog('SUCCESS', `🟢 Successfully connected to Anti-Detect browser port [${adspowerPort}]! Active Chrome session ready.`);
-    }, 1500);
-  };
-
-  const handleVerifyAll = () => {
-    sound.playClick();
-    onVerifyAllCookies(cookieInput);
+    onAddDirectPage(newPageName.trim(), newPageUrl.trim() || undefined);
+    onLog('SUCCESS', `➕ Manually added real page target: [${newPageName.trim()}] to Inline Table.`);
+    setNewPageName('');
+    setNewPageUrl('');
   };
 
   return (
     <div className="space-y-6">
       
-      {/* 1. Cookies Manually OR Import Section */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2">
-            <Key className="w-4 h-4 text-amber-400" />
-            <h2 className="text-sm font-bold text-white uppercase tracking-wider">
-              Enter Cookies Manually OR Import .txt File
-            </h2>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <label className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg cursor-pointer transition shadow-sm">
-              <Upload className="w-3.5 h-3.5" />
-              <span>Import Cookies .txt</span>
-              <input
-                type="file"
-                accept=".txt"
-                onChange={handleImportCookiesFile}
-                className="hidden"
-              />
-            </label>
-
-            <button
-              onClick={() => {
-                sound.playClick();
-                setCookieInput('');
-                onLog('INFO', 'Cleared cookie text buffer.');
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-lg transition"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Clear Cookies</span>
-            </button>
-          </div>
+      {/* 1. Main Facebook Account Login & Persistent Session Setup */}
+      <div className="bg-slate-900 border border-blue-900/40 rounded-xl p-6 shadow-sm space-y-5">
+        <div className="flex items-center gap-2 text-blue-400 font-bold text-base border-b border-slate-800 pb-3">
+          <ShieldCheck className="w-5 h-5" />
+          <span>🔐 Facebook Account Login & Persistent Session Setup (v41.8)</span>
         </div>
 
-        <div className="relative">
-          <textarea
-            rows={4}
-            value={cookieInput}
-            onChange={e => setCookieInput(e.target.value)}
-            placeholder="datr=...; sb=...; c_user=...; xs=... (Paste Facebook / Instagram cookie strings here, one per line)"
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs font-mono text-emerald-400 placeholder:text-slate-600 focus:outline-none focus:border-blue-500 leading-relaxed resize-y"
-          />
-          <div className="text-[11px] text-slate-500 mt-1.5 flex items-center justify-between">
-            <span>Supports standard Netscape, JSON, or semicolon cookie headers (c_user, xs, datr).</span>
-            <span className="font-mono text-slate-400">{cookieInput.split('\n').filter(Boolean).length} cookie lines entered</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Facebook Graph API Credentials */}
-      <div className="bg-slate-900 border border-blue-900/40 rounded-xl p-5 shadow-sm">
-        <div className="flex items-center gap-2 mb-4 text-blue-400 font-bold text-sm">
-          <ShieldCheck className="w-4 h-4" />
-          <span>Facebook Graph API App Credentials (API Key & Secret)</span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-          <div className="md:col-span-3">
-            <label className="block text-xs font-medium text-slate-300 mb-1">Facebook App ID:</label>
-            <input
-              type="text"
-              value={appIdInput}
-              onChange={e => setAppIdInput(e.target.value)}
-              placeholder="e.g. 1094829038491823"
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-slate-200 focus:outline-none focus:border-blue-500"
-            />
-          </div>
-
-          <div className="md:col-span-4">
-            <label className="block text-xs font-medium text-slate-300 mb-1">App Secret (API Key):</label>
-            <div className="relative">
-              <input
-                type={showSecret ? 'text' : 'password'}
-                value={appSecretInput}
-                onChange={e => setAppSecretInput(e.target.value)}
-                placeholder="Meta App Secret Key"
-                className="w-full px-3 py-2 pr-9 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-slate-200 focus:outline-none focus:border-blue-500"
-              />
-              <button
-                type="button"
-                onClick={() => setShowSecret(!showSecret)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
-              >
-                {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-
-          <div className="md:col-span-5 flex items-center gap-3">
-            <button
-              onClick={handleGenerateToken}
-              disabled={isGeneratingToken}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white font-bold text-xs rounded-lg transition shadow-sm"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isGeneratingToken ? 'animate-spin' : ''}`} />
-              <span>{isGeneratingToken ? 'Requesting Token...' : 'Generate App Access Token'}</span>
-            </button>
-
-            {apiConfig.accessToken && (
-              <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-950/60 border border-emerald-800/60 rounded-lg text-xs text-emerald-400">
-                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                <span className="font-mono text-[11px] truncate max-w-[140px]">{apiConfig.accessToken.slice(0, 14)}...</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Real Browser Manual Login & AdsPower Setup Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Real Browser Login */}
-        <div className="bg-slate-900 border border-emerald-900/40 rounded-xl p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-3 text-emerald-400 font-bold text-sm">
-            <Globe className="w-4 h-4" />
-            <span>Real Browser Manual Login & Real Pages Auto-Fetcher</span>
-          </div>
-
-          <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Left Column: Profile Nickname & Browser Launch */}
+          <div className="space-y-4 bg-slate-950 p-4 rounded-xl border border-slate-800">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                Profile Nickname (e.g. MyPersonalFB):
+              <label className="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">
+                Browser Profile Nickname:
               </label>
               <input
                 type="text"
                 value={profileNickname}
                 onChange={e => setProfileNickname(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                className="w-full px-3 py-2.5 bg-slate-900 border border-slate-800 rounded-lg text-xs font-mono text-slate-200 focus:outline-none focus:border-blue-500"
               />
             </div>
 
             <button
               onClick={handleManualBrowserLogin}
               disabled={isBrowserOpening}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg transition shadow-sm"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition shadow-md shadow-emerald-900/30"
             >
               <Globe className="w-4 h-4" />
-              <span>{isBrowserOpening ? 'Opening Session & Fetching Pages...' : 'Open Browser, Login & Fetch All Pages'}</span>
+              <span>{isBrowserOpening ? 'Opening Browser & Fetching Real Pages...' : '🌐 1. Open Login Browser & Fetch Real Pages to Tab 2'}</span>
             </button>
 
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              Launches an isolated browser instance with persistent session cache. Automatically reads active Facebook pages and loads them into the scheduling queue table.
+              Launches an isolated Chrome session with persistent cookies cache. Automatically detects login status and scans managed pages for 2-step switch execution.
             </p>
           </div>
-        </div>
 
-        {/* AdsPower Port Setup */}
-        <div className="bg-slate-900 border border-cyan-900/40 rounded-xl p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-3 text-cyan-400 font-bold text-sm">
-            <Cpu className="w-4 h-4" />
-            <span>Anti-Detect Browser (AdsPower / Dolphin) Port Bridge</span>
-          </div>
+          {/* Right Column: Manual Real Page / URL Adder */}
+          <div className="space-y-4 bg-slate-950 p-4 rounded-xl border border-slate-800">
+            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+              <Plus className="w-4 h-4 text-blue-400" />
+              <span>2. Manually Add Real Page / URL</span>
+            </h4>
 
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                AdsPower / Remote Debugging Port (e.g. 9222):
-              </label>
-              <div className="flex items-center gap-2">
+            <form onSubmit={handleManualAddPage} className="space-y-3">
+              <div>
                 <input
                   type="text"
-                  value={adspowerPort}
-                  onChange={e => setAdspowerPort(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-slate-200 focus:outline-none focus:border-blue-500"
+                  placeholder="Enter Real Facebook Page Name..."
+                  value={newPageName}
+                  onChange={e => setNewPageName(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-blue-500"
                 />
-                <button
-                  onClick={handleConnectPort}
-                  disabled={isConnectingPort}
-                  className="shrink-0 flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-lg transition"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isConnectingPort ? 'animate-spin' : ''}`} />
-                  <span>Connect Port</span>
-                </button>
               </div>
-            </div>
+              <div>
+                <input
+                  type="text"
+                  placeholder="Enter Facebook URL (e.g. https://www.facebook.com/MyPage)..."
+                  value={newPageUrl}
+                  onChange={e => setNewPageUrl(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-xs font-mono text-slate-200 focus:outline-none focus:border-blue-500"
+                />
+              </div>
 
-            <div className="flex items-center justify-between p-2.5 bg-slate-950 rounded-lg border border-slate-800 text-xs">
-              <span className="text-slate-400">Status on 127.0.0.1:{adspowerPort}:</span>
-              {portConnected ? (
-                <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  CONNECTED & SYNCED
-                </span>
-              ) : (
-                <span className="text-amber-400 font-medium">DISCONNECTED</span>
-              )}
-            </div>
-
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              Connect directly to running AdsPower profiles via Chrome Remote Debugging port to avoid 2FA re-verification prompts.
-            </p>
+              <button
+                type="submit"
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-lg transition shadow-sm"
+              >
+                Add Real Page to Inline Table
+              </button>
+            </form>
           </div>
         </div>
 
-      </div>
-
-      {/* 4. Action Banner: 1-Click Verify All Cookies */}
-      <div className="text-center pt-2">
-        <button
-          onClick={handleVerifyAll}
-          className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-900/30 transition transform active:scale-98 flex items-center justify-center gap-2 mx-auto"
-        >
-          <Sparkles className="w-4 h-4 text-amber-300" />
-          <span>⚡ 1-Click Verify All Cookies & Add to Queue</span>
-        </button>
-      </div>
-
-      {/* 5. Live Verification Dashboard */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Activity className="w-4 h-4 text-blue-400" />
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-              Live Verification Dashboard & Connected Accounts ({accounts.length})
-            </h3>
+        {/* Session Cookies Status Box */}
+        <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+          <div className="flex items-center justify-between text-xs font-semibold text-slate-400">
+            <span>Session Cookies Status (Auto-captured from active login session)</span>
+            <span className="text-emerald-400 font-mono">ACTIVE</span>
           </div>
-          <span className="text-xs text-slate-400">All accounts verified for Meta Graph API publishing</span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {accounts.map(acc => (
-            <div
-              key={acc.id}
-              className="bg-slate-950 border border-slate-800 rounded-lg p-3 hover:border-slate-700 transition space-y-2"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${
-                    acc.platform === 'facebook' ? 'bg-blue-600/20 text-blue-400' : 'bg-pink-600/20 text-pink-400'
-                  }`}>
-                    {acc.platform === 'facebook' ? 'f' : 'ig'}
-                  </div>
-                  <h4 className="text-xs font-semibold text-white truncate">{acc.name}</h4>
-                </div>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" title="Active"></span>
-              </div>
-
-              <div className="text-[11px] text-slate-400 space-y-1 pt-1 border-t border-slate-800/80">
-                <div className="flex items-center justify-between">
-                  <span>Type:</span>
-                  <span className="text-slate-300 font-medium">{acc.type}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Profile Nick:</span>
-                  <span className="text-slate-300 font-mono text-[10px]">{acc.profileNickname}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Target ID:</span>
-                  <span className="text-indigo-400 font-mono text-[10px]">{acc.accountId}</span>
-                </div>
-              </div>
-            </div>
-          ))}
+          <textarea
+            rows={3}
+            value={cookieInput}
+            onChange={e => setCookieInput(e.target.value)}
+            className="w-full bg-slate-900 border border-slate-800 rounded-lg p-3 text-xs font-mono text-emerald-400 focus:outline-none focus:border-blue-500 resize-none"
+          />
         </div>
       </div>
 
